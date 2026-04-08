@@ -1,6 +1,7 @@
 {
   "name": "game-map-explorer",
   "version": "1.0.0",
+  "type": "module",
   "description": "Explore classic video game maps in the browser with keyboard and mobile support",
   "scripts": {
     "dev": "vite",
