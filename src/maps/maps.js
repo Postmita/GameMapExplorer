@@ -239,6 +239,21 @@ function buildTown() {
 
 export const MAPS = [
   {
+    id: 'ff-overworld',
+    name: 'FF Overworld',
+    description: 'Classic Final Fantasy NES world map',
+    color: 0x2a8c2a,
+    sceneKey: 'WorldMap',
+    data: {
+      name: 'FF Overworld',
+      imageKey: 'ff-overworld',
+      imagePath: '/maps/FFOverworld.png',
+      startX: 2048,
+      startY: 2176,
+      zoom: 2,
+    },
+  },
+  {
     id: 'overworld',
     name: 'Overworld',
     description: 'A vast land with forests, mountains, and ocean',

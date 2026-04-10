@@ -1,0 +1,14 @@
+{ "columns":256,
+ "image":"..\FFOverworld.png",
+ "imageheight":4352,
+ "imagewidth":4096,
+ "margin":0,
+ "name":"FFOverworld",
+ "spacing":0,
+ "tilecount":69632,
+ "tiledversion":"1.12.1",
+ "tileheight":16,
+ "tilewidth":16,
+ "type":"tileset",
+ "version":"1.10"
+}

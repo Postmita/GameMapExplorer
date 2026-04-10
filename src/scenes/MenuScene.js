@@ -133,7 +133,7 @@ export default class MenuScene extends Phaser.Scene {
     zone.on('pointerdown', () => {
       this.cameras.main.fade(300, 0, 0, 0, false, (_cam, progress) => {
         if (progress === 1) {
-          this.scene.start('Game', { mapDef });
+          this.scene.start(mapDef.sceneKey ?? 'Game', { mapDef });
         }
       });
     });

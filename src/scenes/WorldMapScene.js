@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { TILE_SIZE, PLAYER_SPEED, BLOCKING_TILES } from '../config.js';
+import { PLAYER_SPEED } from '../config.js';
 
 // Player spritesheet frame indices (3 frames per direction row)
 const FRAMES = {
@@ -9,47 +9,55 @@ const FRAMES = {
   right: [9, 10, 11],
 };
 
-export default class GameScene extends Phaser.Scene {
+export default class WorldMapScene extends Phaser.Scene {
   constructor() {
-    super({ key: 'Game' });
+    super({ key: 'WorldMap' });
   }
 
   init(data) {
     this.mapDef = data.mapDef;
   }
 
+  preload() {
+    const { imageKey, imagePath } = this.mapDef.data;
+    this._imageLoadFailed = false;
+    if (!this.textures.exists(imageKey)) {
+      this.load.on('loaderror', (file) => {
+        if (file.key === imageKey) this._imageLoadFailed = true;
+      });
+      this.load.image(imageKey, imagePath);
+    }
+  }
+
   create() {
-    const { tiles, width, height, startX, startY, name } = this.mapDef.data;
+    const { imageKey, startX, startY, name, zoom = 2, imagePath } = this.mapDef.data;
 
-    // ── Tilemap ──────────────────────────────────────────────────────────────
-    const map = this.make.tilemap({ data: tiles, tileWidth: TILE_SIZE, tileHeight: TILE_SIZE });
-    const tileset = map.addTilesetImage('tiles', 'tiles', TILE_SIZE, TILE_SIZE, 0, 0);
-    this.groundLayer = map.createLayer(0, tileset, 0, 0);
+    // ── Guard: show error screen if image failed to load ─────────────────────
+    if (this._imageLoadFailed || !this.textures.exists(imageKey)) {
+      this._showLoadError(imagePath ?? imageKey);
+      return;
+    }
 
-    // Set collision for blocking tile IDs
-    this.groundLayer.setCollision(BLOCKING_TILES);
+    // ── Map image ────────────────────────────────────────────────────────────
+    const mapImg = this.add.image(0, 0, imageKey).setOrigin(0, 0);
+    const mapW = mapImg.width;
+    const mapH = mapImg.height;
 
     // ── Player ───────────────────────────────────────────────────────────────
-    const px = startX * TILE_SIZE + TILE_SIZE / 2;
-    const py = startY * TILE_SIZE + TILE_SIZE / 2;
-
-    this.player = this.physics.add.sprite(px, py, 'player', 1);
+    this.player = this.physics.add.sprite(startX, startY, 'player', 1);
     this.player.setDepth(10);
     this.player.setCollideWorldBounds(true);
-    // Use a smaller physics body so the player fits through 1-tile gaps
     this.player.setBodySize(18, 18, true);
 
-    // Register walk animations (only once per game session)
     this._createAnimsIfNeeded();
 
     // ── Physics ──────────────────────────────────────────────────────────────
-    this.physics.world.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
-    this.physics.add.collider(this.player, this.groundLayer);
+    this.physics.world.setBounds(0, 0, mapW, mapH);
 
     // ── Camera ───────────────────────────────────────────────────────────────
-    this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
+    this.cameras.main.setBounds(0, 0, mapW, mapH);
     this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
-    this.cameras.main.setZoom(1.5);
+    this.cameras.main.setZoom(zoom);
     this.cameras.main.fadeIn(400);
 
     // ── Keyboard ─────────────────────────────────────────────────────────────
@@ -70,29 +78,53 @@ export default class GameScene extends Phaser.Scene {
 
     // ── Facing state ─────────────────────────────────────────────────────────
     this._facing = 'down';
-    this._moving = false;
+  }
+
+  // ─── Error screen ────────────────────────────────────────────────────────────
+
+  _showLoadError(imagePath) {
+    const { width, height } = this.scale;
+    const fileName = String(imagePath).split('/').pop();
+
+    this.add.rectangle(width / 2, height / 2, width - 40, 180, 0x1a1a2e, 0.95)
+      .setOrigin(0.5).setScrollFactor(0).setDepth(300);
+
+    this.add.text(width / 2, height / 2 - 55, '⚠  Map image not found', {
+      fontSize: '20px', fontFamily: 'monospace', color: '#ff5555',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(301);
+
+    this.add.text(width / 2, height / 2 - 20, `Copy the PNG to:`, {
+      fontSize: '13px', fontFamily: 'monospace', color: '#aaaaaa',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(301);
+
+    this.add.text(width / 2, height / 2 + 5, `public/maps/${fileName}`, {
+      fontSize: '14px', fontFamily: 'monospace', color: '#ffff88',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(301);
+
+    const back = this.add.text(width / 2, height / 2 + 52, '← Back to Menu', {
+      fontSize: '16px', fontFamily: 'monospace', color: '#ffffff',
+      backgroundColor: '#333355', padding: { x: 14, y: 8 },
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(301)
+      .setInteractive({ useHandCursor: true });
+
+    back.on('pointerover', () => back.setStyle({ backgroundColor: '#5555aa' }));
+    back.on('pointerout',  () => back.setStyle({ backgroundColor: '#333355' }));
+    back.on('pointerdown', () => this.scene.start('Menu'));
   }
 
   // ─── Animations ─────────────────────────────────────────────────────────────
 
   _createAnimsIfNeeded() {
     const makeFrames = (indices) => indices.map(f => ({ key: 'player', frame: f }));
-
     const defs = [
       { key: 'walk-down',  frames: [0, 1, 2, 1] },
       { key: 'walk-up',    frames: [3, 4, 5, 4] },
       { key: 'walk-left',  frames: [6, 7, 8, 7] },
       { key: 'walk-right', frames: [9, 10, 11, 10] },
     ];
-
     defs.forEach(({ key, frames }) => {
       if (!this.anims.exists(key)) {
-        this.anims.create({
-          key,
-          frames: makeFrames(frames),
-          frameRate: 8,
-          repeat: -1,
-        });
+        this.anims.create({ key, frames: makeFrames(frames), frameRate: 8, repeat: -1 });
       }
     });
   }
@@ -101,14 +133,14 @@ export default class GameScene extends Phaser.Scene {
 
   _buildDpad() {
     const { height } = this.scale;
-    const btnR = 28;       // button radius
-    const pad  = 150;       // distance from bottom-left edge
-    const cx   = pad + btnR * 2;           // D-pad centre X (screen space)
-    const cy   = height - pad - btnR * 2 - 100;  // D-pad centre Y (screen space)
+    const btnR = 28;
+    const pad  = 90;
+    const cx   = pad + btnR * 2;
+    const cy   = height - pad - btnR * 2 - 100;
 
     const dirs = [
-      { dir: 'up',    ox: 0,              oy: -btnR * 2.2, label: '▲' },
-      { dir: 'down',  ox: 0,              oy:  btnR * 2.2, label: '▼' },
+      { dir: 'up',    ox: 0,             oy: -btnR * 2.2, label: '▲' },
+      { dir: 'down',  ox: 0,             oy:  btnR * 2.2, label: '▼' },
       { dir: 'left',  ox: -btnR * 2.2,   oy: 0,           label: '◄' },
       { dir: 'right', ox:  btnR * 2.2,   oy: 0,           label: '►' },
     ];
@@ -117,13 +149,11 @@ export default class GameScene extends Phaser.Scene {
       const bx = cx + ox;
       const by = cy + oy;
 
-      // Use a Rectangle zone as the hit area (circles have unreliable hit detection)
       const hitZone = this.add.rectangle(bx, by, btnR * 2, btnR * 2, 0x000000, 0)
         .setScrollFactor(0)
         .setDepth(202)
         .setInteractive({ useHandCursor: false });
 
-      // Visual circle (non-interactive, purely graphical)
       const circle = this.add.graphics()
         .setScrollFactor(0)
         .setDepth(200);
@@ -153,17 +183,17 @@ export default class GameScene extends Phaser.Scene {
   _buildHUD(mapName) {
     const { width } = this.scale;
 
-    // Map name banner
+    // Title banner (centred, pushed right of the back button)
     this.add.text(width / 2, 14, mapName, {
       fontSize: '16px',
       fontFamily: 'monospace',
       color: '#ffffff',
       backgroundColor: '#000000cc',
       padding: { x: 10, y: 4 },
-    }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(200);
+    }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(250);
 
-    // Back button
-    const back = this.add.text(200, 150, '← Menu', {
+    // Back button – depth 260 so it always sits above every world element
+    const back = this.add.text(14, 14, '← Menu', {
       fontSize: '14px',
       fontFamily: 'monospace',
       color: '#ffffff',
@@ -179,7 +209,6 @@ export default class GameScene extends Phaser.Scene {
       });
     });
 
-    // Controls hint (disappears after 4 s)
     const hint = this.add.text(width / 2, 50, 'WASD / Arrows to move', {
       fontSize: '13px',
       fontFamily: 'monospace',
@@ -205,7 +234,6 @@ export default class GameScene extends Phaser.Scene {
     if (cursors.up.isDown    || wasd.up.isDown    || dpad.up)    vy = -PLAYER_SPEED;
     if (cursors.down.isDown  || wasd.down.isDown  || dpad.down)  vy =  PLAYER_SPEED;
 
-    // Normalise diagonal movement
     if (vx !== 0 && vy !== 0) {
       vx *= 0.7071;
       vy *= 0.7071;
@@ -215,7 +243,6 @@ export default class GameScene extends Phaser.Scene {
 
     const moving = vx !== 0 || vy !== 0;
 
-    // Determine facing direction (prefer axis with larger magnitude)
     if (vx < 0)       this._facing = 'left';
     else if (vx > 0)  this._facing = 'right';
     else if (vy < 0)  this._facing = 'up';
@@ -225,10 +252,7 @@ export default class GameScene extends Phaser.Scene {
       player.anims.play(`walk-${this._facing}`, true);
     } else {
       player.anims.stop();
-      // Show idle frame (middle frame of current direction)
       player.setFrame(FRAMES[this._facing][1]);
     }
-
-    this._moving = moving;
   }
 }
