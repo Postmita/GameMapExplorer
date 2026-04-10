@@ -135,7 +135,7 @@ export default class WorldMapScene extends Phaser.Scene {
     const { height } = this.scale;
     const btnR = 28;
     const pad  = 90;
-    const cx   = pad + btnR * 2;
+    const cx   = pad + btnR * 2 + 200;
     const cy   = height - pad - btnR * 2 - 100;
 
     const dirs = [
@@ -193,7 +193,7 @@ export default class WorldMapScene extends Phaser.Scene {
     }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(250);
 
     // Back button – depth 260 so it always sits above every world element
-    const back = this.add.text(14, 14, '← Menu', {
+    const back = this.add.text(214, 164, '← Menu', {
       fontSize: '14px',
       fontFamily: 'monospace',
       color: '#ffffff',
@@ -225,6 +225,8 @@ export default class WorldMapScene extends Phaser.Scene {
   // ─── Update ──────────────────────────────────────────────────────────────────
 
   update() {
+    if (!this.player) return;  // error state – image failed to load
+
     const { cursors, wasd, dpad, player } = this;
 
     let vx = 0, vy = 0;
